@@ -1,71 +1,28 @@
-import time
-import os
-import re
-import unicodedata
-import re
+from FileToLink.client import bot
+from FileToLink.config import Config, Strings
+
+from pyrogram.errors import ChatAdminRequired, UserNotParticipant
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-def slugify(value, allow_unicode=False):
-    """
-    Taken from https://github.com/django/django/blob/master/django/utils/text.py
-    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
-    dashes to single dashes. Remove characters that aren't alphanumerics,
-    underscores, or hyphens. Convert to lowercase. Also strip leading and
-    trailing whitespace, dashes, and underscores.
-    """
-    value = str(value)
-    ext = str(value).split('.')[-1]
-    value = str(value).split('.')[0]
-    if allow_unicode:
-        value = unicodedata.normalize('NFKC', value)
+async def participant(user_id: int):
+    if Config.Bot_Channel is None:
+        return True
+    try:
+        await bot.get_chat_member(Config.Bot_Channel, user_id)
+    except ChatAdminRequired:
+        print(f"Please Add the Bot to @{Config.Bot_Channel} as Admin")
+        return True
+    except UserNotParticipant:
+        buttons = [[InlineKeyboardButton(Strings.bot_channel, url=f'https://t.me/{Config.Bot_Channel}')]]
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await bot.send_message(user_id, Strings.force_join, reply_markup=reply_markup)
+        return False
     else:
-        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
-    value = re.sub(r'[^\w\s-]', '', value.lower())
-    return re.sub(r'[-\s]+', '-', value).strip('-_') + '.' + ext
+        return True
 
 
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
-
-def req_file_size(req):
-    try:
-        return int(req.headers['content-length'])
-    except:
-        return 0
-
-def get_url_file_name(url,req):
-    try:
-        if "Content-Disposition" in req.headers.keys():
-                name = str(req.headers["Content-Disposition"]).replace('attachment; ','').replace('inline; ','')
-                name = name.replace('filename=','').replace('"','')
-                return name
-        else:
-            import urllib
-            urlfix = urllib.parse.unquote(url,encoding='utf-8', errors='replace')
-            tokens = str(urlfix).split('/');
-            return tokens[len(tokens)-1]
-    except:
-        import urllib
-        urlfix = urllib.parse.unquote(url,encoding='utf-8', errors='replace')
-        tokens = str(urlfix).split('/');
-        return tokens[len(tokens)-1]
-    return ''
-
-def get_file_size(file):
-    file_size = os.stat(file)
-    return file_size.st_size
-
-def createID(count=8):
-    from random import randrange
-    map = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    id = ''
-    i = 0
-    while i<count:
-        rnd = randrange(len(map))
-        id+=map[rnd]
-        i+=1
-    return id
+def progress_bar(current, total, length=16, finished='█', unfinished='░'):
+    rate = current / total
+    finished_len = int(length * rate) if rate <= 1 else length
+    return f'{finished * finished_len}{unfinished * (length - finished_len)} {int(rate * 100)}%'
